@@ -100,7 +100,7 @@ class GranRunner(object):
     self.vis_num_row = config.test.vis_num_row
     self.is_single_plot = config.test.is_single_plot
     self.num_gpus = len(self.gpus)
-    self.is_shuffle = False
+    self.is_shuffle = False  # TODO: grid graph not shuffled?
 
     assert self.use_gpu == True
 
@@ -137,7 +137,7 @@ class GranRunner(object):
         self.config.dataset.sparse_ratio))
 
     self.num_nodes_pmf_train = np.bincount([len(gg.nodes) for gg in self.graphs_train])    
-    self.max_num_nodes = len(self.num_nodes_pmf_train)
+    self.max_num_nodes = len(self.num_nodes_pmf_train)  # TODO:???
     self.num_nodes_pmf_train = self.num_nodes_pmf_train / self.num_nodes_pmf_train.sum()
     
     ### save split for benchmarking
@@ -186,6 +186,7 @@ class GranRunner(object):
     else:
       raise ValueError("Non-supported optimizer!")
 
+    # TODO: not used?
     early_stop = EarlyStopper([0.0], win_size=100, is_decrease=False)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer,
@@ -196,6 +197,7 @@ class GranRunner(object):
     optimizer.zero_grad()
 
     # resume training
+    # TODO: record resume_epoch to the saved file
     resume_epoch = 0
     if self.train_conf.is_resume:
       model_file = os.path.join(self.train_conf.resume_dir,
