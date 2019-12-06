@@ -142,6 +142,9 @@ def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
 
 def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
   ''' MMD between two samples '''
+  if len(samples1) == 0 or len(samples2) == 0:
+    print('in compute mmd len(samples1) == 0 or len(samples2) == 0, we return -1')
+    return -1
   # normalize histograms into pmf  
   if is_hist:
     samples1 = [s1 / np.sum(s1) for s1 in samples1]

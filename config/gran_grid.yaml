@@ -58,10 +58,10 @@ test:
   num_workers: 0
   num_test_gen: 20 # number of generated samples
   is_vis: true
-  is_single_plot: false # visualize `num_vis` samples in a single image
+  is_single_plot: true # visualize `num_vis` samples in a single image
   is_test_ER: false # test Erdos-Renyi baseline
   num_vis: 20
   vis_num_row: 5 # visualize `num_vis` samples in `vis_num_row` rows
   better_vis: true
-  test_model_dir: snapshot_model
-  test_model_name: gran_grid.pth
+  test_model_dir: exp/GRAN/GRANMixtureBernoulli_grid_2019-Dec-06-04-22-17_9666
+  test_model_name: model_snapshot_0001400.pth

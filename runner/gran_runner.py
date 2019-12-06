@@ -73,9 +73,9 @@ def evaluate(graph_gt, graph_pred, degree_only=True):
     mmd_4orbits = 0.0
     mmd_clustering = 0.0
     mmd_spectral = 0.0
-  else:    
+  else:
     mmd_4orbits = orbit_stats_all(graph_gt, graph_pred)
-    mmd_clustering = clustering_stats(graph_gt, graph_pred)    
+    mmd_clustering = clustering_stats(graph_gt, graph_pred)
     mmd_spectral = spectral_stats(graph_gt, graph_pred)
     
   return mmd_degree, mmd_clustering, mmd_4orbits, mmd_spectral
