@@ -1,6 +1,6 @@
 ---
 exp_name: GRAN
-exp_dir: exp/GRAN
+exp_dir: exp/GRAN_grid_reproduce
 runner: GranRunner
 use_horovod: false
 use_gpu: true
@@ -22,8 +22,8 @@ dataset:
   is_overwrite_precompute: false
 model:
   name: GRANMixtureBernoulli
-  num_mix_component: 20
-  is_sym: true
+  num_mix_component: 20  # # mix Bernoulli
+  is_sym: true  # is undirected graph
   block_size: 1
   sample_stride: 1
   max_num_nodes: 361

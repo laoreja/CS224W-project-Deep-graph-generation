@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-EPS = np.finfo(np.float32).eps
+EPS = np.finfo(np.float32).eps  # not used
 
 __all__ = ['GRANMixtureBernoulli']
 
@@ -159,7 +159,7 @@ class GRANMixtureBernoulli(nn.Module):
     self.num_GNN_layers = config.model.num_GNN_layers
     self.edge_weight = config.model.edge_weight if hasattr(
         config.model, 'edge_weight') else 1.0
-    self.dimension_reduce = config.model.dimension_reduce
+    self.dimension_reduce = config.model.dimension_reduce  # true for grid
     self.has_attention = config.model.has_attention
     self.num_canonical_order = config.model.num_canonical_order
     self.output_dim = 1

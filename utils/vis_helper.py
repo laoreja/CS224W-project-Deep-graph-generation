@@ -21,8 +21,9 @@ def draw_graph_list(G_list,
     # plt.axis("off")
 
     # turn off axis label
-    plt.xticks([])
-    plt.yticks([])
+    plt.axis("off")
+    # plt.xticks([])
+    # plt.yticks([])
 
     if layout == 'spring':
       pos = nx.spring_layout(

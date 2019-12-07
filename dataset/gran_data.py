@@ -150,10 +150,10 @@ class GRANData(object):
     num_nodes = adj_list[0].shape[0]
     num_subgraphs = int(np.floor((num_nodes - K) / S) + 1)
 
-    if self.is_sample_subgraph:
-      if self.num_subgraph_batch < num_subgraphs:
+    if self.is_sample_subgraph:  # true for grid
+      if self.num_subgraph_batch < num_subgraphs:  # 50 for grid < num subgraphs in most cases
         num_subgraphs_pass = int(
-            np.floor(self.num_subgraph_batch / self.num_fwd_pass))
+            np.floor(self.num_subgraph_batch / self.num_fwd_pass))  # num fwd pass: 1 for grid
       else:
         num_subgraphs_pass = int(np.floor(num_subgraphs / self.num_fwd_pass))
 
@@ -167,7 +167,7 @@ class GRANData(object):
 
     start_time = time.time()
     data_batch = []
-    for ff in range(self.num_fwd_pass):
+    for ff in range(self.num_fwd_pass):  # 1 for grid
       ff_idx_start = num_subgraphs_pass * ff
       if ff == self.num_fwd_pass - 1:
         ff_idx_end = end_idx
@@ -207,7 +207,7 @@ class GRANData(object):
               adj_full[:jj, :jj], ((0, K), (0, K)),
               'constant',
               constant_values=1.0)  # assuming fully connected for the new block
-          adj_block = np.tril(adj_block, k=-1)
+          adj_block = np.tril(adj_block, k=-1)  # lower triangle, diagonal = 0
           adj_block = adj_block + adj_block.transpose()
           adj_block = torch.from_numpy(adj_block).to_sparse()
           edges += [adj_block.coalesce().indices().long()]
@@ -227,6 +227,7 @@ class GRANData(object):
 
           ### get node feature index for GNN input
           # use inf to indicate the newly added nodes where input feature is zero
+          # TODO: not understand this feat
           if jj == 0:
             node_idx_feat += [np.ones(K) * np.inf]
           else:
@@ -253,7 +254,7 @@ class GRANData(object):
           subgraph_size += [jj + K]
           subgraph_idx += [
               np.ones_like(label[-1]).astype(np.int64) * subgraph_count
-          ]
+          ]  # TODO: do not understand this
           subgraph_count += 1
 
       ### adjust index basis for the selected subgraphs
@@ -264,10 +265,10 @@ class GRANData(object):
 
       ### pack tensors
       data = {}
-      data['adj'] = np.tril(np.stack(adj_list, axis=0), k=-1)
-      data['edges'] = torch.cat(edges, dim=1).t()
-      data['node_idx_gnn'] = np.concatenate(node_idx_gnn)
-      data['node_idx_feat'] = np.concatenate(node_idx_feat)
+      data['adj'] = np.tril(np.stack(adj_list, axis=0), k=-1)  # do tril for each adj
+      data['edges'] = torch.cat(edges, dim=1).t()  # return size [E, 2] after t()
+      data['node_idx_gnn'] = np.concatenate(node_idx_gnn)  # default axis is 0
+      data['node_idx_feat'] = np.concatenate(node_idx_feat)  # seems to be node idx + inf for new node
       data['label'] = np.concatenate(label)
       data['att_idx'] = np.concatenate(att_idx)
       data['subgraph_idx'] = np.concatenate(subgraph_idx)
@@ -304,6 +305,7 @@ class GRANData(object):
                                    [bb['subgraph_count'] for bb in batch_pass])
       subgraph_idx_base = np.cumsum(subgraph_idx_base)
 
+      # TODO: Not used
       data['num_nodes_gt'] = torch.from_numpy(
           np.array([bb['num_nodes'] for bb in batch_pass])).long().view(-1)
 
@@ -336,6 +338,7 @@ class GRANData(object):
           np.concatenate([bb['att_idx'] for bb in batch_pass], axis=0)).long()
 
       # shift one position for padding 0-th row feature in the model
+      # TODO: understand this
       node_idx_feat = np.concatenate(
           [
               bb['node_idx_feat'] + ii * C * N

@@ -100,7 +100,7 @@ class GranRunner(object):
     self.vis_num_row = config.test.vis_num_row
     self.is_single_plot = config.test.is_single_plot
     self.num_gpus = len(self.gpus)
-    self.is_shuffle = False  # TODO: grid graph not shuffled?
+    self.is_shuffle = True  # TODO: grid graph not shuffled?
 
     assert self.use_gpu == True
 
@@ -162,7 +162,7 @@ class GranRunner(object):
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=self.train_conf.batch_size,
-        shuffle=self.train_conf.shuffle,
+        shuffle=self.train_conf.shuffle,  # true for grid
         num_workers=self.train_conf.num_workers,
         collate_fn=train_dataset.collate_fn,
         drop_last=False)
@@ -246,18 +246,18 @@ class GranRunner(object):
               batch_fwd.append((data,))
 
           if batch_fwd:
-            train_loss = model(*batch_fwd).mean()              
-            avg_train_loss += train_loss              
+            train_loss = model(*batch_fwd).mean()
+            avg_train_loss += train_loss.item()
 
             # assign gradient
             train_loss.backward()
         
         # clip_grad_norm_(model.parameters(), 5.0e-0)
         optimizer.step()
-        avg_train_loss /= float(self.dataset_conf.num_fwd_pass)
+        avg_train_loss /= self.dataset_conf.num_fwd_pass
         
         # reduce
-        train_loss = float(avg_train_loss.data.cpu().numpy())
+        train_loss = avg_train_loss  #float(avg_train_loss.data.cpu().numpy())
         
         self.writer.add_scalar('train_loss', train_loss, iter_count)
         results['train_loss'] += [train_loss]

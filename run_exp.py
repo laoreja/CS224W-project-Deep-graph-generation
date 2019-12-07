@@ -15,7 +15,7 @@ torch.set_printoptions(profile='full')
 def main():
   args = parse_arguments()
   config = get_config(args.config_file, is_test=args.test)
-  # np.random.seed(config.seed)
+  np.random.seed(config.seed)
   # torch.manual_seed(config.seed)
   # torch.cuda.manual_seed_all(config.seed)
   config.use_gpu = config.use_gpu and torch.cuda.is_available()
