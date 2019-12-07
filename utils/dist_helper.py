@@ -10,6 +10,7 @@ import concurrent.futures
 from functools import partial
 from scipy.linalg import toeplitz
 
+from .logger import get_logger
 
 def emd(x, y, distance_scaling=1.0):
   support_size = max(len(x), len(y))
@@ -143,7 +144,8 @@ def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
 def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
   ''' MMD between two samples '''
   if len(samples1) == 0 or len(samples2) == 0:
-    print('in compute mmd len(samples1) == 0 or len(samples2) == 0, we return -1')
+    logger = get_logger()
+    logger.error('in compute mmd len(samples1) == 0 or len(samples2) == 0, we return -1')
     return -1
   # normalize histograms into pmf  
   if is_hist:

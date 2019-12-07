@@ -14,6 +14,9 @@ from datetime import datetime
 from scipy.linalg import eigvalsh
 from utils.dist_helper import compute_mmd, gaussian_emd, gaussian, emd, gaussian_tv
 
+import traceback
+from .logger import get_logger
+
 PRINT_TIME = False
 __all__ = [
     'clean_graphs', 'degree_stats', 'clustering_stats', 'orbit_stats_all', 'spectral_stats',
@@ -292,7 +295,9 @@ def orca(graph):
   try:
     os.remove(tmp_fname)
   except OSError:
-    pass
+    logger = get_logger()
+    logger.error(traceback.format_exc())
+
 
   return node_orbit_counts
 
@@ -366,6 +371,9 @@ def orbit_stats_all(graph_ref_list, graph_pred_list):
     try:
       orbit_counts = orca(G)
     except:
+      logger = get_logger()
+      logger.error('in orbit_stats_all, unable to run orca(G), graph ref list')
+      logger.error(traceback.format_exc())
       continue
     orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
     total_counts_ref.append(orbit_counts_graph)
@@ -374,6 +382,9 @@ def orbit_stats_all(graph_ref_list, graph_pred_list):
     try:
       orbit_counts = orca(G)
     except:
+      logger = get_logger()
+      logger.error('in orbit_stats_all, unable to run orca(G), graph pred list')
+      logger.error(traceback.format_exc())
       continue
     orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
     total_counts_pred.append(orbit_counts_graph)
