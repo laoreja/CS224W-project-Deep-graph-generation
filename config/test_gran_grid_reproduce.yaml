@@ -1,6 +1,6 @@
 ---
 exp_name: GRAN
-exp_dir: exp/GRAN_grid_reproduce  # TODO: change
+exp_dir: exp/GRAN_grid_reproduce_debug_test_save_bothdirs  # TODO: change
 runner: GranRunner
 use_horovod: false
 use_gpu: true
@@ -65,4 +65,4 @@ test:
   better_vis: true
   test_model_dir: exp/GRAN_grid_reproduce/GRANMixtureBernoulli_grid_2019-Dec-07-05-45-42_18921  # TODO: change
   test_model_name: model_snapshot_0003000.pth  # TODO: may need change
-  hard_multi: True
+  hard_multi: False

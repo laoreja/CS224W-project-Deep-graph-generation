@@ -44,6 +44,8 @@ def get_config(config_file, exp_dir=None, is_test=False):
       config.model.name, config.dataset.name,
       time.strftime('%Y-%b-%d-%H-%M-%S'), config.run_id
   ])
+  if is_test:
+    config.exp_name = 'test_' + config.exp_name
 
   if exp_dir is not None:
     config.exp_dir = exp_dir

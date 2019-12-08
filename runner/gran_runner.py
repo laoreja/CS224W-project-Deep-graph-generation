@@ -278,7 +278,7 @@ class GranRunner(object):
     return 1
 
   def test(self):
-    self.config.save_dir = self.test_conf.test_model_dir
+    self.config.save_dir_train = self.test_conf.test_model_dir
 
     ### Compute Erdos-Renyi baseline    
     if self.config.test.is_test_ER:
@@ -287,7 +287,7 @@ class GranRunner(object):
     else:
       ### load model
       model = eval(self.model_conf.name)(self.config)
-      model_file = os.path.join(self.config.save_dir, self.test_conf.test_model_name)
+      model_file = os.path.join(self.config.save_dir_train, self.test_conf.test_model_name)
       load_model(model, model_file, self.device)
 
       if self.use_gpu:
@@ -295,7 +295,7 @@ class GranRunner(object):
 
       model.eval()
 
-      if not hasattr(self.config.test, 'hard_multi'):
+      if not hasattr(self.config.test, 'hard_multi') or not self.config.test.hard_multi:
         ### Generate Graphs
         A_pred = []
         num_nodes_pred = []
@@ -325,7 +325,9 @@ class GranRunner(object):
           num_row = int(np.ceil(self.num_vis / num_col))
           test_epoch = self.test_conf.test_model_name
           test_epoch = test_epoch[test_epoch.rfind('_') + 1:test_epoch.find('.pth')]
-          save_name = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}.png'.format(self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride))
+          save_name = os.path.join(self.config.save_dir_train, '{}_gen_graphs_epoch_{}_block_{}_stride_{}.png'.format(self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride))
+
+          save_name2 = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}.png'.format(self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride))
 
           # remove isolated nodes for better visulization
           graphs_pred_vis = [copy.deepcopy(gg) for gg in graphs_gen[:self.num_vis]]
@@ -343,10 +345,12 @@ class GranRunner(object):
 
           if self.is_single_plot:
             draw_graph_list(vis_graphs, num_row, num_col, fname=save_name, layout='spring')
+            draw_graph_list(vis_graphs, num_row, num_col, fname=save_name2, layout='spring')
           else:
             draw_graph_list_separate(vis_graphs, fname=save_name[:-4], is_single=True, layout='spring')
+            draw_graph_list_separate(vis_graphs, fname=save_name2[:-4], is_single=True, layout='spring')
 
-          save_name = os.path.join(self.config.save_dir, 'train_graphs.png')
+          save_name = os.path.join(self.config.save_dir_train, 'train_graphs.png')
 
           if self.is_single_plot:
             draw_graph_list(
@@ -379,13 +383,27 @@ class GranRunner(object):
         mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test = evaluate(self.graphs_test, graphs_gen, degree_only=False)
         mmd_num_nodes_test = compute_mmd([np.bincount(num_nodes_test)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
 
-        logger.info("Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_dev, mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev))
-        logger.info("Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_test, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test))
+        logger.info(
+          "Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {:.4E}/{:.4E}/{:.4E}/{:.4E}/{:.4E}".format(
+            Decimal(mmd_num_nodes_dev),
+            Decimal(mmd_degree_dev),
+            Decimal(mmd_clustering_dev),
+            Decimal(mmd_4orbits_dev),
+            Decimal(mmd_spectral_dev)))
+        logger.info(
+          "Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {:.4E}/{:.4E}/{:.4E}/{:.4E}/{:.4E}".format(
+            Decimal(mmd_num_nodes_test),
+            Decimal(mmd_degree_test),
+            Decimal(mmd_clustering_test),
+            Decimal(mmd_4orbits_test),
+            Decimal(mmd_spectral_test)))
+        # logger.info("Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_dev, mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev))
+        # logger.info("Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_test, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test))
 
-        if self.config.dataset.name in ['lobster']:
-          return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test, acc
-        else:
-          return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test
+        # if self.config.dataset.name in ['lobster']:
+        #   return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test, acc
+        # else:
+        #   return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test
 
       else:
         for test_hard_idx, hard_thre in enumerate(np.arange(0.5, 1, 0.1)):
@@ -420,9 +438,13 @@ class GranRunner(object):
             num_row = int(np.ceil(self.num_vis / num_col))
             test_epoch = self.test_conf.test_model_name
             test_epoch = test_epoch[test_epoch.rfind('_') + 1:test_epoch.find('.pth')]
-            save_name = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}_hard_{}.png'.format(
+            save_name = os.path.join(self.config.save_dir_train, '{}_gen_graphs_epoch_{}_block_{}_stride_{}_hard_{}.png'.format(
               self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride,
               int(round(hard_thre*10))))
+            save_name2 = os.path.join(self.config.save_dir,
+                                     '{}_gen_graphs_epoch_{}_block_{}_stride_{}_hard_{}.png'.format(
+                                       self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride,
+                                       int(round(hard_thre * 10))))
 
             # remove isolated nodes for better visulization
             graphs_pred_vis = [copy.deepcopy(gg) for gg in graphs_gen[:self.num_vis]]
@@ -440,11 +462,13 @@ class GranRunner(object):
 
             if self.is_single_plot:
               draw_graph_list(vis_graphs, num_row, num_col, fname=save_name, layout='spring')
+              draw_graph_list(vis_graphs, num_row, num_col, fname=save_name2, layout='spring')
             else:
               draw_graph_list_separate(vis_graphs, fname=save_name[:-4], is_single=True, layout='spring')
+              draw_graph_list_separate(vis_graphs, fname=save_name2[:-4], is_single=True, layout='spring')
 
             if test_hard_idx == 0:
-              save_name = os.path.join(self.config.save_dir, 'train_graphs.png')
+              save_name = os.path.join(self.config.save_dir_train, 'train_graphs.png')
 
               if self.is_single_plot:
                 draw_graph_list(
