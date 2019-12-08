@@ -8,6 +8,7 @@ import pickle
 from collections import defaultdict
 from tqdm import tqdm
 import concurrent.futures
+from decimal import Decimal
 
 import torch
 import torch.nn as nn
@@ -215,7 +216,6 @@ class GranRunner(object):
     results = defaultdict(list)
     for epoch in range(resume_epoch, self.train_conf.max_epoch):
       model.train()
-      lr_scheduler.step()
       train_iterator = train_loader.__iter__()
 
       for inner_iter in range(len(train_loader) // self.num_gpus):
@@ -254,6 +254,7 @@ class GranRunner(object):
         
         # clip_grad_norm_(model.parameters(), 5.0e-0)
         optimizer.step()
+        lr_scheduler.step()
         avg_train_loss /= self.dataset_conf.num_fwd_pass
         
         # reduce
@@ -294,93 +295,200 @@ class GranRunner(object):
 
       model.eval()
 
-      ### Generate Graphs
-      A_pred = []
-      num_nodes_pred = []
-      num_test_batch = int(np.ceil(self.num_test_gen / self.test_conf.batch_size))
+      if not hasattr(self.config.test, 'hard_multi'):
+        ### Generate Graphs
+        A_pred = []
+        num_nodes_pred = []
+        num_test_batch = int(np.ceil(self.num_test_gen / self.test_conf.batch_size))
 
-      gen_run_time = []
-      for ii in tqdm(range(num_test_batch)):
-        with torch.no_grad():        
-          start_time = time.time()
-          input_dict = {}
-          input_dict['is_sampling']=True
-          input_dict['batch_size']=self.test_conf.batch_size
-          input_dict['num_nodes_pmf']=self.num_nodes_pmf_train
-          A_tmp = model(input_dict)
-          gen_run_time += [time.time() - start_time]
-          A_pred += [aa.data.cpu().numpy() for aa in A_tmp]
-          num_nodes_pred += [aa.shape[0] for aa in A_tmp]
+        gen_run_time = []
+        for ii in tqdm(range(num_test_batch)):
+          with torch.no_grad():
+            start_time = time.time()
+            input_dict = {}
+            input_dict['is_sampling']=True
+            input_dict['batch_size']=self.test_conf.batch_size
+            input_dict['num_nodes_pmf']=self.num_nodes_pmf_train
+            A_tmp = model(input_dict)
+            gen_run_time += [time.time() - start_time]
+            A_pred += [aa.data.cpu().numpy() for aa in A_tmp]
+            num_nodes_pred += [aa.shape[0] for aa in A_tmp]
 
-      logger.info('Average test time per mini-batch = {}'.format(
-          np.mean(gen_run_time)))
-          
-      graphs_gen = [get_graph(aa) for aa in A_pred]
+        logger.info('Average test time per mini-batch = {}'.format(
+            np.mean(gen_run_time)))
 
-    ### Visualize Generated Graphs
-    if self.is_vis:
-      num_col = self.vis_num_row
-      num_row = int(np.ceil(self.num_vis / num_col))
-      test_epoch = self.test_conf.test_model_name
-      test_epoch = test_epoch[test_epoch.rfind('_') + 1:test_epoch.find('.pth')]
-      save_name = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}.png'.format(self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride))
+        graphs_gen = [get_graph(aa) for aa in A_pred]
 
-      # remove isolated nodes for better visulization
-      graphs_pred_vis = [copy.deepcopy(gg) for gg in graphs_gen[:self.num_vis]]
+        ### Visualize Generated Graphs
+        if self.is_vis:
+          num_col = self.vis_num_row
+          num_row = int(np.ceil(self.num_vis / num_col))
+          test_epoch = self.test_conf.test_model_name
+          test_epoch = test_epoch[test_epoch.rfind('_') + 1:test_epoch.find('.pth')]
+          save_name = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}.png'.format(self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride))
 
-      if self.better_vis:
-        for gg in graphs_pred_vis:
-          gg.remove_nodes_from(list(nx.isolates(gg)))
+          # remove isolated nodes for better visulization
+          graphs_pred_vis = [copy.deepcopy(gg) for gg in graphs_gen[:self.num_vis]]
 
-      # display the largest connected component for better visualization
-      vis_graphs = []
-      for gg in graphs_pred_vis:        
-        CGs = [gg.subgraph(c) for c in nx.connected_components(gg)]
-        CGs = sorted(CGs, key=lambda x: x.number_of_nodes(), reverse=True)
-        vis_graphs += [CGs[0]]
+          if self.better_vis:
+            for gg in graphs_pred_vis:
+              gg.remove_nodes_from(list(nx.isolates(gg)))
 
-      if self.is_single_plot:
-        draw_graph_list(vis_graphs, num_row, num_col, fname=save_name, layout='spring')
+          # display the largest connected component for better visualization
+          vis_graphs = []
+          for gg in graphs_pred_vis:
+            CGs = [gg.subgraph(c) for c in nx.connected_components(gg)]
+            CGs = sorted(CGs, key=lambda x: x.number_of_nodes(), reverse=True)
+            vis_graphs += [CGs[0]]
+
+          if self.is_single_plot:
+            draw_graph_list(vis_graphs, num_row, num_col, fname=save_name, layout='spring')
+          else:
+            draw_graph_list_separate(vis_graphs, fname=save_name[:-4], is_single=True, layout='spring')
+
+          save_name = os.path.join(self.config.save_dir, 'train_graphs.png')
+
+          if self.is_single_plot:
+            draw_graph_list(
+                self.graphs_train[:self.num_vis],
+                num_row,
+                num_col,
+                fname=save_name,
+                layout='spring')
+          else:
+            draw_graph_list_separate(
+                self.graphs_train[:self.num_vis],
+                fname=save_name[:-4],
+                is_single=True,
+                layout='spring')
+
+        ### Evaluation
+        if self.config.dataset.name in ['lobster']:
+          acc = eval_acc_lobster_graph(graphs_gen)
+          logger.info('Validity accuracy of generated graphs = {}'.format(acc))
+
+        num_nodes_gen = [len(aa) for aa in graphs_gen]
+
+        # Compared with Validation Set
+        num_nodes_dev = [len(gg.nodes) for gg in self.graphs_dev]  # shape B X 1
+        mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev = evaluate(self.graphs_dev, graphs_gen, degree_only=False)
+        mmd_num_nodes_dev = compute_mmd([np.bincount(num_nodes_dev)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+
+        # Compared with Test Set
+        num_nodes_test = [len(gg.nodes) for gg in self.graphs_test]  # shape B X 1
+        mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test = evaluate(self.graphs_test, graphs_gen, degree_only=False)
+        mmd_num_nodes_test = compute_mmd([np.bincount(num_nodes_test)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+
+        logger.info("Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_dev, mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev))
+        logger.info("Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_test, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test))
+
+        if self.config.dataset.name in ['lobster']:
+          return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test, acc
+        else:
+          return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test
+
       else:
-        draw_graph_list_separate(vis_graphs, fname=save_name[:-4], is_single=True, layout='spring')
+        for test_hard_idx, hard_thre in enumerate(np.arange(0.5, 1, 0.1)):
+          logger.info('Test pass {}. Hard threshold {}'.format(test_hard_idx, hard_thre))
+          ### Generate Graphs
+          A_pred = []
+          num_nodes_pred = []
+          num_test_batch = int(np.ceil(self.num_test_gen / self.test_conf.batch_size))
 
-      save_name = os.path.join(self.config.save_dir, 'train_graphs.png')
+          gen_run_time = []
+          for ii in tqdm(range(num_test_batch)):
+            with torch.no_grad():
+              start_time = time.time()
+              input_dict = {}
+              input_dict['is_sampling'] = True
+              input_dict['batch_size'] = self.test_conf.batch_size
+              input_dict['num_nodes_pmf'] = self.num_nodes_pmf_train
+              input_dict['hard_thre'] = hard_thre
+              A_tmp = model(input_dict)
+              gen_run_time += [time.time() - start_time]
+              A_pred += [aa.data.cpu().numpy() for aa in A_tmp]
+              num_nodes_pred += [aa.shape[0] for aa in A_tmp]
 
-      if self.is_single_plot:
-        draw_graph_list(
-            self.graphs_train[:self.num_vis],
-            num_row,
-            num_col,
-            fname=save_name,
-            layout='spring')
-      else:      
-        draw_graph_list_separate(
-            self.graphs_train[:self.num_vis],
-            fname=save_name[:-4],
-            is_single=True,
-            layout='spring')
+          logger.info('Average test time per mini-batch = {}'.format(
+            np.mean(gen_run_time)))
 
-    ### Evaluation
-    if self.config.dataset.name in ['lobster']:
-      acc = eval_acc_lobster_graph(graphs_gen)
-      logger.info('Validity accuracy of generated graphs = {}'.format(acc))
+          graphs_gen = [get_graph(aa) for aa in A_pred]
 
-    num_nodes_gen = [len(aa) for aa in graphs_gen]
-    
-    # Compared with Validation Set    
-    num_nodes_dev = [len(gg.nodes) for gg in self.graphs_dev]  # shape B X 1
-    mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev = evaluate(self.graphs_dev, graphs_gen, degree_only=False)
-    mmd_num_nodes_dev = compute_mmd([np.bincount(num_nodes_dev)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+          ### Visualize Generated Graphs
+          if self.is_vis:
+            num_col = self.vis_num_row
+            num_row = int(np.ceil(self.num_vis / num_col))
+            test_epoch = self.test_conf.test_model_name
+            test_epoch = test_epoch[test_epoch.rfind('_') + 1:test_epoch.find('.pth')]
+            save_name = os.path.join(self.config.save_dir, '{}_gen_graphs_epoch_{}_block_{}_stride_{}_hard_{}.png'.format(
+              self.config.test.test_model_name[:-4], test_epoch, self.block_size, self.stride,
+              int(round(hard_thre*10))))
 
-    # Compared with Test Set    
-    num_nodes_test = [len(gg.nodes) for gg in self.graphs_test]  # shape B X 1
-    mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test = evaluate(self.graphs_test, graphs_gen, degree_only=False)
-    mmd_num_nodes_test = compute_mmd([np.bincount(num_nodes_test)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+            # remove isolated nodes for better visulization
+            graphs_pred_vis = [copy.deepcopy(gg) for gg in graphs_gen[:self.num_vis]]
 
-    logger.info("Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_dev, mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev))
-    logger.info("Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {}/{}/{}/{}/{}".format(mmd_num_nodes_test, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test))
+            if self.better_vis:
+              for gg in graphs_pred_vis:
+                gg.remove_nodes_from(list(nx.isolates(gg)))
 
-    if self.config.dataset.name in ['lobster']:
-      return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test, acc
-    else:
-      return mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev, mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test
+            # display the largest connected component for better visualization
+            vis_graphs = []
+            for gg in graphs_pred_vis:
+              CGs = [gg.subgraph(c) for c in nx.connected_components(gg)]
+              CGs = sorted(CGs, key=lambda x: x.number_of_nodes(), reverse=True)
+              vis_graphs += [CGs[0]]
+
+            if self.is_single_plot:
+              draw_graph_list(vis_graphs, num_row, num_col, fname=save_name, layout='spring')
+            else:
+              draw_graph_list_separate(vis_graphs, fname=save_name[:-4], is_single=True, layout='spring')
+
+            if test_hard_idx == 0:
+              save_name = os.path.join(self.config.save_dir, 'train_graphs.png')
+
+              if self.is_single_plot:
+                draw_graph_list(
+                  self.graphs_train[:self.num_vis],
+                  num_row,
+                  num_col,
+                  fname=save_name,
+                  layout='spring')
+              else:
+                draw_graph_list_separate(
+                  self.graphs_train[:self.num_vis],
+                  fname=save_name[:-4],
+                  is_single=True,
+                  layout='spring')
+
+          ### Evaluation
+          if self.config.dataset.name in ['lobster']:
+            acc = eval_acc_lobster_graph(graphs_gen)
+            logger.info('Validity accuracy of generated graphs = {}'.format(acc))
+
+          num_nodes_gen = [len(aa) for aa in graphs_gen]
+
+          # Compared with Validation Set
+          num_nodes_dev = [len(gg.nodes) for gg in self.graphs_dev]  # shape B X 1
+          mmd_degree_dev, mmd_clustering_dev, mmd_4orbits_dev, mmd_spectral_dev = evaluate(self.graphs_dev, graphs_gen,
+                                                                                           degree_only=False)
+          mmd_num_nodes_dev = compute_mmd([np.bincount(num_nodes_dev)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+
+          # Compared with Test Set
+          num_nodes_test = [len(gg.nodes) for gg in self.graphs_test]  # shape B X 1
+          mmd_degree_test, mmd_clustering_test, mmd_4orbits_test, mmd_spectral_test = evaluate(self.graphs_test, graphs_gen,
+                                                                                               degree_only=False)
+          mmd_num_nodes_test = compute_mmd([np.bincount(num_nodes_test)], [np.bincount(num_nodes_gen)], kernel=gaussian_emd)
+
+          logger.info(
+            "Validation MMD scores of #nodes/degree/clustering/4orbits/spectral are = {:.4E}/{:.4E}/{:.4E}/{:.4E}/{:.4E}".format(Decimal(mmd_num_nodes_dev),
+                                                                                                       Decimal(mmd_degree_dev),
+                                                                                                       Decimal(mmd_clustering_dev),
+                                                                                                       Decimal(mmd_4orbits_dev),
+                                                                                                       Decimal(mmd_spectral_dev)))
+          logger.info(
+            "Test MMD scores of #nodes/degree/clustering/4orbits/spectral are = {:.4E}/{:.4E}/{:.4E}/{:.4E}/{:.4E}".format(Decimal(mmd_num_nodes_test),
+                                                                                                       Decimal(mmd_degree_test),
+                                                                                                       Decimal(mmd_clustering_test),
+                                                                                                       Decimal(mmd_4orbits_test),
+                                                                                                       Decimal(mmd_spectral_test)))
+

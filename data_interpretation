@@ -1,0 +1,68 @@
+        A_pad: B X C X N_max X N_max, padded adjacency matrix         
+        node_idx_gnn: M X 2, node indices of augmented edges
+        node_idx_feat: N X 1, node indices of subgraphs for indexing from feature
+                      (0 indicates indexing from 0-th row of feature which is 
+                        always zero and corresponds to newly generated nodes)  
+        att_idx: N X 1, one-hot encoding of newly generated nodes
+                      (0 indicates existing nodes, 1-D indicates new nodes in
+                        the to-be-generated block)
+        subgraph_idx: E X 1, indices corresponding to augmented edges
+                      (representing which subgraph in mini-batch the augmented 
+                      edge belongs to)
+        edges: E X 2, edge as [incoming node index, outgoing node index]
+        label: E X 1, binary label of augmented edges        
+        num_nodes_pmf: N_max, empirical probability mass function of number of nodes
+
+
+================================================================================
+jj: # already exist nodes
+ii: node order index
+C: number of canonical orderings
+N: N_max
+
+================================================================================
+In dataset getitem:
+
+data['adj']: np.tril(np.stack(adj_list, axis=0), k=-1)  # do tril for each adj, entry: 0/1
+
+data['edge']:
+  1. [2, E] for each subgraph for each order for each data point
+  2. add subgraph base, so node in each subgraph has unique idx among the whole data point
+  3. [total_E, 2], total_E: all subgraph and all orders
+
+data['att_idx']:
+  1. for each subgraph, size is jj + K; 0 for already exist nodes and 1,2,...,K for new nodes
+
+data['node_idx_feat']:
+  1. for each subgraph, size is jj + K;  [ii * N+0, ii * N+1, ..., ii * N+jj-1] + [np.inf] * K
+
+data['node_idx_gnn']: size (jj + K)K x 2, node indices in current subgraph, for augmented edges
+
+data['label']: size (jj + K)K
+
+data['subgraph_idx']: size jj + K -- # nodes in the subgraph
+
+data['subgraph_count']: scalar for each subgraph, indicates the subgraph idx within this data point
+
+================================================================================
+After collate:
+
+data['adj']: B X C X N_max X N_max
+  np.tril(np.stack(adj_list, axis=0), k=-1)  # do tril for each adj, pad 0 to N_max
+
+data['edges']: total_batch_E x 2
+  add base index for subgraphs in the batch, so node in each subgraph has unique idx among the whole batch
+
+data['node_idx_gnn']: sum( (jj + K)K for all jj for all ii in the batch ) x 2
+  same as edges, add base index for subgraphs in the batch, so node in each subgraph has unique idx among the whole batch
+
+data['att_idx']: sum( jj + K for all jj for all ii in the batch )
+
+data['node_idx_feat']: sum( jj + K for all jj for all ii in the batch )
+   1. + ii * C * N_max + 1 -- shift one position for padding 0-th row feature in the model
+   2. switch the np.inf value to 0
+
+data['label']: sum( (jj + K)K for all jj for all ii in the batch )
+
+data['subgraph_idx']: sum( jj + K for all jj for all ii in the batch)
+  add subgraph_idx_base, cumsum of subgraph_count for each data point, so that each subgraph has a unique index among the whole batch

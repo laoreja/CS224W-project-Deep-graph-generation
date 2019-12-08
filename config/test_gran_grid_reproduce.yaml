@@ -1,6 +1,6 @@
 ---
 exp_name: GRAN
-exp_dir: exp/GRAN_grid_debug_my_model_prob
+exp_dir: exp/GRAN_grid_reproduce  # TODO: change
 runner: GranRunner
 use_horovod: false
 use_gpu: true
@@ -21,7 +21,7 @@ dataset:
   is_sample_subgraph: true # set to true if you want to sample subgraphs
   is_overwrite_precompute: false
 model:
-  name: MyGRANMixtureBernoulli
+  name: GRANMixtureBernoulli  # TODO: change
   num_mix_component: 20  # # mix Bernoulli
   is_sym: true  # is undirected graph
   block_size: 1
@@ -63,5 +63,6 @@ test:
   num_vis: 20
   vis_num_row: 5 # visualize `num_vis` samples in `vis_num_row` rows
   better_vis: true
-  test_model_dir: exp/GRAN/GRANMixtureBernoulli_grid_2019-Dec-06-04-22-17_9666
-  test_model_name: model_snapshot_0003000.pth
+  test_model_dir: exp/GRAN_grid_reproduce/GRANMixtureBernoulli_grid_2019-Dec-07-05-45-42_18921  # TODO: change
+  test_model_name: model_snapshot_0003000.pth  # TODO: may need change
+  hard_multi: True
