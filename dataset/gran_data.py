@@ -165,7 +165,7 @@ class GRANData(object):
     ### random permute subgraph
     rand_perm_idx = self.npr.permutation(num_subgraphs).tolist()
 
-    start_time = time.time()
+
     data_batch = []
     for ff in range(self.num_fwd_pass):  # 1 for grid
       ff_idx_start = num_subgraphs_pass * ff
@@ -183,6 +183,7 @@ class GRANData(object):
       subgraph_size = []
       subgraph_idx = []
       att_idx = []
+      # complete_graph_label = []
       subgraph_count = 0
 
       for ii in range(len(adj_list)):
@@ -201,6 +202,11 @@ class GRANData(object):
 
           if idx not in rand_idx:
             continue
+
+          # if jj == num_nodes - 1:
+          #   complete_graph_label.append(1)
+          # else:
+          #   complete_graph_label.append(0)
 
           ### get graph for GNN propagation
           adj_block = np.pad(
@@ -270,6 +276,7 @@ class GRANData(object):
       data['node_idx_gnn'] = np.concatenate(node_idx_gnn)  # default axis is 0
       data['node_idx_feat'] = np.concatenate(node_idx_feat)  # seems to be node idx + inf for new node
       data['label'] = np.concatenate(label)
+      # data['complete_graph_label'] = np.concatenate(complete_graph_label)
       data['att_idx'] = np.concatenate(att_idx)
       data['subgraph_idx'] = np.concatenate(subgraph_idx)
       data['subgraph_count'] = subgraph_count
@@ -278,8 +285,6 @@ class GRANData(object):
       data['num_count'] = sum(subgraph_size)
       data_batch += [data]
 
-    end_time = time.time()
-    # print('preprocess time = {}'.format(end_time - start_time))
 
     return data_batch
 
@@ -288,7 +293,6 @@ class GRANData(object):
 
   def collate_fn(self, batch):
     assert isinstance(batch, list)
-    start_time = time.time()
     batch_size = len(batch)
     N = self.max_num_nodes
     C = self.num_canonical_order
@@ -352,6 +356,9 @@ class GRANData(object):
       data['label'] = torch.from_numpy(
           np.concatenate([bb['label'] for bb in batch_pass])).float()
 
+      # data['complete_graph_label'] = torch.from_numpy(
+      #   np.concatenate(bb['complete_graph_label'] for bb in batch_pass)).float()
+
       data['subgraph_idx'] = torch.from_numpy(
           np.concatenate([
               bb['subgraph_idx'] + subgraph_idx_base[ii]
@@ -360,7 +367,5 @@ class GRANData(object):
 
       batch_data += [data]
 
-    end_time = time.time()
-    # print('collate time = {}'.format(end_time - start_time))
-    
+
     return batch_data

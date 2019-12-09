@@ -1,6 +1,6 @@
 ---
-exp_name: GRAN
-exp_dir: exp/GRAN_grid_gat_att_softmax
+exp_name_prefix: debug_code_cp
+exp_dir: exp/debug  # TODO: change
 runner: GranRunner
 use_horovod: false
 use_gpu: true
@@ -37,6 +37,24 @@ model:
   dimension_reduce: true
   has_attention: true
   edge_weight: 1.0e+0
+complete_graph_model:
+  name: GNNStack
+  model:
+    dimension_reduce: true
+    dropout: 0.0
+    embedding_dim: 128
+    hidden_dim: 128
+    max_num_nodes: 361
+    model_type: GCN
+    num_GraphGNN_layers: 3
+    num_canonical_order: 1
+    num_head: 5
+  # use train graphs only
+  test_model_dir: exp/complete_graph_no_dropout/GNNStack_grid_2019-Dec-09-01-39-36_30029
+  test_model_name: model_snapshot_0000802.pth
+#  # use all graphs
+#  test_model_dir: exp/complete_graph_whole_graphs/GNNStack_grid_2019-Dec-09-02-17-41_17271
+#  test_model_name: model_snapshot_0000635.pth
 train:
   optimizer: Adam
   lr_decay: 0.3
@@ -64,6 +82,7 @@ test:
   is_test_ER: false # test Erdos-Renyi baseline
   num_vis: 20
   vis_num_row: 5 # visualize `num_vis` samples in `vis_num_row` rows
-  better_vis: true
-  test_model_dir: exp/GRAN/GRANMixtureBernoulli_grid_2019-Dec-06-04-22-17_9666
-  test_model_name: model_snapshot_0003000.pth
+  better_vis: False
+  test_model_dir: exp/GRAN_grid_gat_att_softmax/GATGRANMixtureBernoulli_grid_2019-Dec-07-22-46-01_4481  # TODO: change
+  test_model_name: model_snapshot_0003000.pth  # TODO: may change
+  hard_multi: true

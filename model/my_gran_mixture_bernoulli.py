@@ -279,7 +279,7 @@ class MyGRANMixtureBernoulli(nn.Module):
 
     return log_theta, log_alpha
 
-  def _sampling(self, B):
+  def _sampling(self, B, hard_thre):
     """ generate adj in row-wise auto-regressive fashion """
 
     K = self.block_size
@@ -310,9 +310,9 @@ class MyGRANMixtureBernoulli(nn.Module):
 
       if ii >= K:
         if self.dimension_reduce:
-          node_state[:, ii - S:ii, :] = self.decoder_input(A[:, ii - S:ii, :N])
+          node_state[:, ii - K:ii, :] = self.decoder_input(A[:, ii - K:ii, :N])
         else:
-          node_state[:, ii - S:ii, :] = A[:, ii - S:ii, :N]
+          node_state[:, ii - K:ii, :] = A[:, ii - K:ii, :N]
       else:
         if self.dimension_reduce:
           node_state[:, :ii, :] = self.decoder_input(A[:, :ii, :N])
@@ -355,7 +355,7 @@ class MyGRANMixtureBernoulli(nn.Module):
             1, att_idx[[edges[:, 1]]] + self.att_edge_dim, 1)
 
       node_state_out = self.decoder(
-          node_state_in.view(-1, H), edges, edge_feat=att_edge_feat)
+          node_state_in.view(-1, dim_input), edges, edge_feat=att_edge_feat)
       node_state_out = node_state_out.view(B, jj, -1)
 
       idx_row, idx_col = np.meshgrid(np.arange(ii, jj), np.arange(jj))
@@ -381,8 +381,8 @@ class MyGRANMixtureBernoulli(nn.Module):
 
       prob = torch.stack(prob, dim=0)
 
-      if hasattr(self.config.test, 'hard_thre'):
-          A[:, ii:jj, :jj] = (prob > self.config.test.hard_thre).long()
+      if hard_thre is not None:
+          A[:, ii:jj, :jj] = (prob > hard_thre).long()
       else:
           # TODO: why :jj - ii
           A[:, ii:jj, :jj] = torch.bernoulli(prob)
@@ -447,6 +447,7 @@ class MyGRANMixtureBernoulli(nn.Module):
     # is set during test according to the stats in training
     num_nodes_pmf = input_dict[
         'num_nodes_pmf'] if 'num_nodes_pmf' in input_dict else None
+    hard_thre = input_dict['hard_thre'] if 'hard_thre' in input_dict else None
 
     # not used here, actually N_max == N
     # N_max = self.max_num_nodes
@@ -470,7 +471,7 @@ class MyGRANMixtureBernoulli(nn.Module):
 
       return adj_loss
     else:
-      A = self._sampling(batch_size)
+      A = self._sampling(batch_size, hard_thre)
 
       ### sample number of nodes
       num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)

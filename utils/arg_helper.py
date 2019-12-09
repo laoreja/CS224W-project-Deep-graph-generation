@@ -1,18 +1,19 @@
 import os
+import os.path as osp
 import yaml
 import time
 import argparse
+import shutil
 from easydict import EasyDict as edict
-
 
 def parse_arguments():
   parser = argparse.ArgumentParser(
-      description="Running Experiments of Deep Prediction")
+      description="Running Experiments of Deep Graph Generation")
   parser.add_argument(
       '-c',
       '--config_file',
       type=str,
-      default="config/resnet101_cifar.json",
+      default="config/gran_grid.yaml",
       required=True,
       help="Path of config file")
   parser.add_argument(
@@ -35,13 +36,13 @@ def parse_arguments():
 
 def get_config(config_file, exp_dir=None, is_test=False):
   """ Construct and snapshot hyper parameters """
-  # config = edict(yaml.load(open(config_file, 'r'), Loader=yaml.FullLoader))
-  config = edict(yaml.load(open(config_file, 'r')))
+  config = edict(yaml.load(open(config_file, 'r'), Loader=yaml.FullLoader))
+  # config = edict(yaml.load(open(config_file, 'r')))
 
   # create hyper parameters
   config.run_id = str(os.getpid())
   config.exp_name = '_'.join([
-      config.model.name, config.dataset.name,
+      config.exp_name_prefix, config.model.name, config.dataset.name,
       time.strftime('%Y-%b-%d-%H-%M-%S'), config.run_id
   ])
   if is_test:
@@ -60,6 +61,37 @@ def get_config(config_file, exp_dir=None, is_test=False):
   # snapshot hyperparameters
   mkdir(config.exp_dir)
   mkdir(config.save_dir)
+
+  if not config.train.is_resume or is_test:
+    # -------------------- code copy --------------------
+    # TODO: find better approach
+    repo_basename = osp.basename(osp.dirname(osp.dirname(osp.abspath(__file__))))
+    repo_path = osp.join(config.save_dir, repo_basename)
+    os.makedirs(repo_path, mode=0o777, exist_ok=True)
+
+    walk_res = os.walk('.')
+    useful_paths = [path for path in walk_res if
+                    '.git' not in path[0] and
+                    'data' not in path[0] and
+                    'exp' not in path[0] and
+                    'configs' not in path[0] and
+                    '__pycache__' not in path[0] and
+                    'tee_dir' not in path[0] and
+                    'tmp' not in path[0]]
+    # print('useful_paths', useful_paths)
+    for p in useful_paths:
+      for item in p[-1]:
+        if not (item.endswith('.py') or item.endswith('.cpp') or item.endswith('.h') or item.endswith('.md')):
+          continue
+        old_path = osp.join(p[0], item)
+        new_path = osp.join(repo_path, p[0][2:], item)
+        basedir = osp.dirname(new_path)
+        os.makedirs(basedir, mode=0o777, exist_ok=True)
+        shutil.copyfile(old_path, new_path)
+    # If cannot find file, will raise FileNotFoundError
+    # The destination location must be writable; otherwise, an OSError exception will be raised.
+    #  If dst already exists, it will be replaced. Special files such as character or block devices
+    #  and pipes cannot be copied with this function.
 
   yaml.dump(edict2dict(config), open(save_name, 'w'), default_flow_style=False)
 

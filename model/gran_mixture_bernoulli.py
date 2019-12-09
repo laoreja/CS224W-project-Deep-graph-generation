@@ -100,6 +100,7 @@ class GNN(nn.Module):
     ### aggregate message by sum
     state_msg = torch.zeros(state.shape[0], msg.shape[1]).to(state.device)
     scatter_idx = edge[:, [1]].expand(-1, msg.shape[1])
+    # set to 0 for debug_edge_scatter
     state_msg = state_msg.scatter_add(0, scatter_idx, msg)
 
     ### state update
@@ -174,7 +175,7 @@ class GRANMixtureBernoulli(nn.Module):
     self.output_dim = 1
     self.num_mix_component = config.model.num_mix_component
     self.has_rand_feat = False # use random feature instead of 1-of-K encoding
-    self.att_edge_dim = 64 #1 + self.block_size
+    self.att_edge_dim = 1 + self.block_size
 
     self.output_theta = nn.Sequential(
         nn.Linear(self.hidden_dim, self.hidden_dim),

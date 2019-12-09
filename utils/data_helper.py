@@ -165,7 +165,10 @@ def create_graphs(graph_type, data_dir='data', noise=10.0, seed=1234):
     graphs = []
     for i in range(10, 20):
       for j in range(10, 20):
-        graphs.append(nx.grid_2d_graph(i, j))    
+        tmp_graph = nx.grid_2d_graph(i, j)
+        tmp_graph.graph['i_nodes'] = i
+        tmp_graph.graph['j_nodes'] = j
+        graphs.append(tmp_graph)
   elif graph_type == 'lobster':
     graphs = []
     p1 = 0.7

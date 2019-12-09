@@ -65,5 +65,6 @@ test:
   num_vis: 20
   vis_num_row: 5 # visualize `num_vis` samples in `vis_num_row` rows
   better_vis: true
-  test_model_dir: exp/GRAN/GRANMixtureBernoulli_grid_2019-Dec-06-04-22-17_9666
+  test_model_dir: exp/GRAN_grid_gat/GATGRANMixtureBernoulli_grid_2019-Dec-07-22-31-46_8190/
   test_model_name: model_snapshot_0003000.pth
+  hard_multi: True

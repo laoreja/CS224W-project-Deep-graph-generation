@@ -1,6 +1,7 @@
 ---
+# plot spring more iterations
 exp_name: GRAN
-exp_dir: exp/GRAN_grid_concat
+exp_dir: exp/GRAN_grid_debug_edge_scater_L102  # TODO: change
 runner: GranRunner
 use_horovod: false
 use_gpu: true
@@ -21,7 +22,7 @@ dataset:
   is_sample_subgraph: true # set to true if you want to sample subgraphs
   is_overwrite_precompute: false
 model:
-  name: ConcatGRANMixtureBernoulli
+  name: GRANMixtureBernoulli  # TODO: change
   num_mix_component: 20  # # mix Bernoulli
   is_sym: true  # is undirected graph
   block_size: 1
@@ -63,6 +64,6 @@ test:
   num_vis: 20
   vis_num_row: 5 # visualize `num_vis` samples in `vis_num_row` rows
   better_vis: true
-  test_model_dir: exp/GRAN_grid_concat/GATGRANMixtureBernoulli_grid_2019-Dec-07-22-19-55_22233
-  test_model_name: model_snapshot_0003000.pth
-  hard_multi: True
+  test_model_dir: exp/GRAN_grid_debug_edge_scater_L102/GRANMixtureBernoulli_grid_2019-Dec-07-09-20-31_17736  # TODO: change
+  test_model_name: model_snapshot_0003000.pth  # TODO: may need change
+  hard_multi: True  # TODO: set

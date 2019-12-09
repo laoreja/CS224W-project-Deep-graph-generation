@@ -292,7 +292,7 @@ class GATGRANMixtureBernoulli(nn.Module):
 
     return log_theta, log_alpha
 
-  def _sampling(self, B):
+  def _sampling(self, B, hard_thre):
     """ generate adj in row-wise auto-regressive fashion """
 
     K = self.block_size
@@ -368,15 +368,15 @@ class GATGRANMixtureBernoulli(nn.Module):
             1, att_idx[[edges[:, 1]]] + self.att_edge_dim, 1)
 
       node_state_out = self.decoder(
-          node_state_in.view(-1, H), edges, edge_feat=att_edge_feat)
+          node_state_in.view(-1, self.embedding_dim), edges, edge_feat=att_edge_feat)
       node_state_out = node_state_out.view(B, jj, -1)
 
       idx_row, idx_col = np.meshgrid(np.arange(ii, jj), np.arange(jj))
       idx_row = torch.from_numpy(idx_row.reshape(-1)).long().to(self.device)
       idx_col = torch.from_numpy(idx_col.reshape(-1)).long().to(self.device)
 
-      diff = node_state_out[:,idx_row, :] - node_state_out[:,idx_col, :]  # B X (ii+K)K X H
-      diff = diff.view(-1, node_state.shape[2])
+      diff = torch.cat((node_state_out[:,idx_row, :], node_state_out[:,idx_col, :]), dim=-1)  # B X (ii+K)K X H
+      diff = diff.view(-1, node_state_out.shape[2]*2)
       logit_theta = self.output_theta(diff)
       logit_alpha = self.output_alpha(diff)
 
@@ -394,8 +394,8 @@ class GATGRANMixtureBernoulli(nn.Module):
 
       prob = torch.stack(prob, dim=0)
 
-      if hasattr(self.config.test, 'hard_thre'):
-          A[:, ii:jj, :jj] = (prob > self.config.test.hard_thre).long()
+      if hard_thre is not None:
+          A[:, ii:jj, :jj] = (prob > hard_thre).long()
       else:
           # TODO: why :jj - ii
           A[:, ii:jj, :jj] = torch.bernoulli(prob)
@@ -460,6 +460,7 @@ class GATGRANMixtureBernoulli(nn.Module):
     # is set during test according to the stats in training
     num_nodes_pmf = input_dict[
         'num_nodes_pmf'] if 'num_nodes_pmf' in input_dict else None
+    hard_thre = input_dict['hard_thre'] if 'hard_thre' in input_dict else None
 
     # not used here, actually N_max == N
     # N_max = self.max_num_nodes
@@ -483,16 +484,20 @@ class GATGRANMixtureBernoulli(nn.Module):
 
       return adj_loss
     else:
-      A = self._sampling(batch_size)
+      A = self._sampling(batch_size, hard_thre)
 
-      ### sample number of nodes
-      num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)
-      num_nodes = torch.multinomial(
-          num_nodes_pmf, batch_size, replacement=True) + 1  # shape B X 1
+      if hasattr(self.config, 'complete_graph_model'):
+        A_list = [A[ii, ...] for ii in range(batch_size)]
+      else:
+        ### sample number of nodes
+        num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)
+        num_nodes = torch.multinomial(
+            num_nodes_pmf, batch_size, replacement=True)  # shape B X 1
+        # fix bug, no + 1 above
 
-      A_list = [
-          A[ii, :num_nodes[ii], :num_nodes[ii]] for ii in range(batch_size)
-      ]
+        A_list = [
+            A[ii, :num_nodes[ii], :num_nodes[ii]] for ii in range(batch_size)
+        ]
       return A_list
 
 

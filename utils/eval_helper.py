@@ -272,7 +272,7 @@ def edge_list_reindexed(G):
 
 
 def orca(graph):
-  tmp_fname = 'utils/orca/tmp.txt'
+  tmp_fname = 'utils/orca/tmp_'+str(os.getpid())+'.txt'
   f = open(tmp_fname, 'w')
   f.write(
       str(graph.number_of_nodes()) + ' ' + str(graph.number_of_edges()) + '\n')
@@ -281,7 +281,7 @@ def orca(graph):
   f.close()
 
   output = sp.check_output(
-      ['./utils/orca/orca', 'node', '4', 'utils/orca/tmp.txt', 'std'])
+      ['./utils/orca/orca', 'node', '4', tmp_fname, 'std'])
   output = output.decode('utf8').strip()
 
   idx = output.find(COUNT_START_STR) + len(COUNT_START_STR)

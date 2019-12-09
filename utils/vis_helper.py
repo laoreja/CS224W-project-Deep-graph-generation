@@ -27,7 +27,7 @@ def draw_graph_list(G_list,
 
     if layout == 'spring':
       pos = nx.spring_layout(
-          G, k=k / np.sqrt(G.number_of_nodes()), iterations=100)
+          G, k=k / np.sqrt(G.number_of_nodes()), iterations=500)
     elif layout == 'spectral':
       pos = nx.spectral_layout(G)
 
