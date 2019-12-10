@@ -39,6 +39,12 @@ def get_config(config_file, exp_dir=None, is_test=False):
   config = edict(yaml.load(open(config_file, 'r'), Loader=yaml.FullLoader))
   # config = edict(yaml.load(open(config_file, 'r')))
 
+  if config.runner == 'GranRunner':
+    print('use GranRunner, assert block size and stride and fwd pass')
+    assert config.model.block_size == 1
+    assert config.model.sample_stride == 1
+    assert config.dataset.num_fwd_pass == 1
+
   # create hyper parameters
   config.run_id = str(os.getpid())
   config.exp_name = '_'.join([
@@ -62,8 +68,8 @@ def get_config(config_file, exp_dir=None, is_test=False):
   mkdir(config.exp_dir)
   mkdir(config.save_dir)
 
+  # -------------------- code copy --------------------
   if not config.train.is_resume or is_test:
-    # -------------------- code copy --------------------
     # TODO: find better approach
     repo_basename = osp.basename(osp.dirname(osp.dirname(osp.abspath(__file__))))
     repo_path = osp.join(config.save_dir, repo_basename)

@@ -1,8 +1,7 @@
 ---
-exp_name: GRAN
+exp_name_prefix: complete_hard
 exp_dir: exp/GRAN_grid_concat
 runner: GranRunner
-use_horovod: false
 use_gpu: true
 device: cuda:0
 gpus: [0]
@@ -66,3 +65,21 @@ test:
   test_model_dir: exp/GRAN_grid_concat/GATGRANMixtureBernoulli_grid_2019-Dec-07-22-19-55_22233
   test_model_name: model_snapshot_0003000.pth
   hard_multi: True
+complete_graph_model:
+  name: GNNStack
+  model:
+    dimension_reduce: true
+    dropout: 0.0
+    embedding_dim: 128
+    hidden_dim: 128
+    max_num_nodes: 361
+    model_type: GCN
+    num_GraphGNN_layers: 3
+    num_canonical_order: 1
+    num_head: 5
+  # use train graphs only
+  test_model_dir: exp/complete_graph_no_dropout/GNNStack_grid_2019-Dec-09-01-39-36_30029
+  test_model_name: model_snapshot_0000802.pth
+#  # use all graphs
+#  test_model_dir: exp/complete_graph_whole_graphs/GNNStack_grid_2019-Dec-09-02-17-41_17271
+#  test_model_name: model_snapshot_0000635.pth

@@ -133,7 +133,7 @@ class GRANData(object):
         adj_list = [adj_4, adj_3, adj_5, adj_1]
       elif self.node_order == 'all':
         adj_list = [adj_4, adj_3, adj_5, adj_1, adj_0]
-      else:
+      elif self.node_order == 'default':
         adj_list = [adj_0]
 
     # print('number of nodes = {}'.format(adj_0.shape[0]))

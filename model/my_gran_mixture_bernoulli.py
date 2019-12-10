@@ -473,14 +473,18 @@ class MyGRANMixtureBernoulli(nn.Module):
     else:
       A = self._sampling(batch_size, hard_thre)
 
-      ### sample number of nodes
-      num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)
-      num_nodes = torch.multinomial(
-          num_nodes_pmf, batch_size, replacement=True) + 1  # shape B X 1
+      if hasattr(self.config, 'complete_graph_model'):
+        A_list = [A[ii, ...] for ii in range(batch_size)]
+      else:
+        ### sample number of nodes
+        num_nodes_pmf = torch.from_numpy(num_nodes_pmf).to(self.device)
+        num_nodes = torch.multinomial(
+            num_nodes_pmf, batch_size, replacement=True)  # shape B X 1
+        # fix bug, no + 1 above
 
-      A_list = [
-          A[ii, :num_nodes[ii], :num_nodes[ii]] for ii in range(batch_size)
-      ]
+        A_list = [
+            A[ii, :num_nodes[ii], :num_nodes[ii]] for ii in range(batch_size)
+        ]
       return A_list
 
 

@@ -4,6 +4,7 @@
 #
 ###############################################################################
 import os
+import copy
 import torch
 import pickle
 import numpy as np
@@ -135,23 +136,32 @@ def graph_load_batch(data_dir,
   node_list = np.arange(data_graph_indicator.shape[0]) + 1
   graphs = []
   max_nodes = 0
+  label_cnt = {
+    1: 0,
+    2: 0
+  }
   for i in range(graph_num):
     # find the nodes for each graph
     nodes = node_list[data_graph_indicator == i + 1]
     G_sub = G.subgraph(nodes)
     if graph_labels:
       G_sub.graph['label'] = data_graph_labels[i]
+      # if data_graph_labels[i] == 1:
+      #   print('label is 1, #nodes:', G_sub.number_of_nodes())
     # print('nodes', G_sub.number_of_nodes())
     # print('edges', G_sub.number_of_edges())
-    # print('label', G_sub.graph)
+
     if G_sub.number_of_nodes() >= min_num_nodes and G_sub.number_of_nodes(
     ) <= max_num_nodes:
+      # print('label', G_sub.graph['label'])
+      label_cnt[G_sub.graph['label']] += 1
       graphs.append(G_sub)
       if G_sub.number_of_nodes() > max_nodes:
         max_nodes = G_sub.number_of_nodes()
       # print(G_sub.number_of_nodes(), 'i', i)
       # print('Graph dataset name: {}, total graph num: {}'.format(name, len(graphs)))
       # logging.warning('Graphs loaded, total num: {}'.format(len(graphs)))
+  print('label_cnt', label_cnt)
   print('Loaded')
   return graphs
 
