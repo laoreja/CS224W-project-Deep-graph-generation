@@ -44,6 +44,13 @@ def get_config(config_file, exp_dir=None, is_test=False):
     assert config.model.block_size == 1
     assert config.model.sample_stride == 1
     assert config.dataset.num_fwd_pass == 1
+    assert config.use_gpu
+
+  if config.runner == 'GANRunner':
+    assert config.dataset.num_fwd_pass == 1
+    assert config.use_gpu
+    assert len(config.gpus) == 1
+
 
   # create hyper parameters
   config.run_id = str(os.getpid())

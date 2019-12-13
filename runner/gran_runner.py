@@ -175,6 +175,7 @@ class GranRunner(object):
 
     if self.use_gpu:
       model = DataParallel(model, device_ids=self.gpus).to(self.device)
+    model.train()
 
     # create optimizer
     params = filter(lambda p: p.requires_grad, model.parameters())

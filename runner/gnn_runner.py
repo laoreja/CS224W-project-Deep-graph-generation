@@ -126,7 +126,7 @@ class GNNRunner(object):
     torch.autograd.set_detect_anomaly(True)
 
     ### create data loader
-    train_dataset = eval(self.dataset_conf.loader_name)(self.config, self.graphs, tag='all')
+    train_dataset = eval(self.dataset_conf.loader_name)(self.config, self.graphs_train, tag='train')
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=self.train_conf.batch_size,
@@ -142,6 +142,7 @@ class GNNRunner(object):
     if self.use_gpu:
       model = DataParallel(model, device_ids=self.gpus).to(self.device)
       criterion = criterion.cuda()
+    model.train()
 
     # create optimizer
     params = filter(lambda p: p.requires_grad, model.parameters())

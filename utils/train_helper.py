@@ -14,7 +14,7 @@ def data_to_gpu(*input_data):
   return tuple(return_data)
 
 
-def snapshot(model, optimizer, config, step, gpus=[0], tag=None, scheduler=None):
+def snapshot(model, optimizer, config, step, gpus=[0], tag=None, scheduler=None, fname_prefix=''):
   
   if scheduler is not None:
     model_snapshot = {
@@ -31,17 +31,18 @@ def snapshot(model, optimizer, config, step, gpus=[0], tag=None, scheduler=None)
     }    
 
   torch.save(model_snapshot,
-             os.path.join(config.save_dir, "model_snapshot_{}.pth".format(tag)
+             os.path.join(config.save_dir, fname_prefix+"model_snapshot_{}.pth".format(tag)
                           if tag is not None else
-                          "model_snapshot_{:07d}.pth".format(step)))
+                          fname_prefix+"model_snapshot_{:07d}.pth".format(step)))
   # update config file's test path
   save_name = os.path.join(config.save_dir, 'config.yaml')
   # config_save = edict(yaml.load(open(save_name, 'r'), Loader=yaml.FullLoader))
-  config_save = edict(yaml.load(open(save_name, 'r')))
-  config_save.test.test_model_dir = config.save_dir
-  config_save.test.test_model_name = "model_snapshot_{}.pth".format(
-          tag) if tag is not None else "model_snapshot_{:07d}.pth".format(step)
-  yaml.dump(edict2dict(config_save), open(save_name, 'w'), default_flow_style=False)
+  if fname_prefix != 'D_':
+    config_save = edict(yaml.load(open(save_name, 'r'), Loader=yaml.FullLoader))
+    config_save.test.test_model_dir = config.save_dir
+    config_save.test.test_model_name = fname_prefix+"model_snapshot_{}.pth".format(
+            tag) if tag is not None else fname_prefix+"model_snapshot_{:07d}.pth".format(step)
+    yaml.dump(edict2dict(config_save), open(save_name, 'w'), default_flow_style=False)
 
 
 def load_model(model, file_name, device, optimizer=None, scheduler=None):

@@ -166,7 +166,7 @@ def graph_load_batch(data_dir,
   return graphs
 
 
-def create_graphs(graph_type, data_dir='data', noise=10.0, seed=1234):
+def create_graphs(graph_type, data_dir='data', noise=10.0, seed=1234, max_m=5, max_n=6):
   npr = np.random.RandomState(seed)
   ### load datasets
   graphs = []
@@ -175,6 +175,14 @@ def create_graphs(graph_type, data_dir='data', noise=10.0, seed=1234):
     graphs = []
     for i in range(10, 20):
       for j in range(10, 20):
+        tmp_graph = nx.grid_2d_graph(i, j)
+        tmp_graph.graph['i_nodes'] = i
+        tmp_graph.graph['j_nodes'] = j
+        graphs.append(tmp_graph)
+  elif graph_type == 'grid_small':
+    graphs = []
+    for i in range(2, max_m+1):
+      for j in range(2, max_n+1):
         tmp_graph = nx.grid_2d_graph(i, j)
         tmp_graph.graph['i_nodes'] = i
         tmp_graph.graph['j_nodes'] = j
